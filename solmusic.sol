@@ -1313,6 +1313,8 @@ contract SolMusic is ERC721, Ownable, ReentrancyGuard {
     uint256 constant VIEW_TOKEN_PRICE = 0.01 ether;
     uint256 private _tokenCounter;
 
+    uint256 private _nonce;
+
     mapping(uint256 => string) private _baseUri;
     mapping(uint256 => string) private _artist;
     mapping(uint256 => string) private _nameSong;
@@ -1345,27 +1347,29 @@ contract SolMusic is ERC721, Ownable, ReentrancyGuard {
     constructor(string memory name, string memory symbol) ERC721(name, symbol) Ownable() {}
 
     // Un usuario puede acuñar su canción en la web3 con los parámetros.
-    function mintV1(
-    string memory baseUri, // La extensión del IPFS donde se encuentra la portada y la música.
-    string memory artist, // Nombre del Artista
-    string memory nameSong, // Nombre de la canción
-    uint256 priceToMintAClone // Precio que el cliente tiene que pagar para poder acuñar esta canción y acceder al 30% de regalías.
-    ) external nonReentrant{
-    _tokenCounter++;
-    uint256 tokenId = _tokenCounter;
-    _safeMint(msg.sender, tokenId);
-    _baseUri[tokenId] = baseUri;
-    _artist[tokenId] = artist;
-    _nameSong[tokenId] = nameSong;
-    _initialPriceToMintAClone[tokenId] = priceToMintAClone;
-    _currentPriceToMintAClone[tokenId] = priceToMintAClone;
-    
-    // Se genera un hash único con esos parámetros para que se pueda clonar los parámetros únicos del NFT
-    bytes32 paramsHash = _generateMintV1ParamsHash(baseUri, artist, nameSong, priceToMintAClone);
-    _mintV1ParamsHash[tokenId] = paramsHash;
-    _tokenIdByMintV1ParamsHash[paramsHash] = tokenId;
-    _tokenExists[tokenId] = true; 
-}
+     function mintV1(
+        string memory baseUri,
+        string memory artist,
+        string memory nameSong,
+        uint256 priceToMintAClone
+    ) external nonReentrant {
+        _tokenCounter++;
+        uint256 tokenId = _tokenCounter;
+        _safeMint(msg.sender, tokenId);
+        _baseUri[tokenId] = baseUri;
+        _artist[tokenId] = artist;
+        _nameSong[tokenId] = nameSong;
+        _initialPriceToMintAClone[tokenId] = priceToMintAClone;
+        _currentPriceToMintAClone[tokenId] = priceToMintAClone;
+        
+        // Se genera un hash único con esos parámetros y un nonce para que siempre sea único
+        bytes32 paramsHash = _generateMintV1ParamsHash(baseUri, artist, nameSong, priceToMintAClone);
+        _mintV1ParamsHash[tokenId] = paramsHash;
+        _tokenIdByMintV1ParamsHash[paramsHash] = tokenId;
+        _tokenExists[tokenId] = true;
+
+        _nonce++; // Incrementar el nonce
+    }
   
 
     // El cliente llama a esta función con el hash único de la canción que quiere obtener y poder acceder al 30% de las regalías
@@ -1504,8 +1508,8 @@ contract SolMusic is ERC721, Ownable, ReentrancyGuard {
         string memory artist,
         string memory nameSong,
         uint256 priceToMintAClone
-    ) private pure returns (bytes32) {
-        return keccak256(abi.encodePacked(baseUri, artist, nameSong, priceToMintAClone));
+    ) private view returns (bytes32) {
+        return keccak256(abi.encodePacked(baseUri, artist, nameSong, priceToMintAClone, _nonce));
     }
 
     function _findTokenId(bytes32 mintV1ParamsHash) private view returns (uint256) {
